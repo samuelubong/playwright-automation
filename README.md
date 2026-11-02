@@ -14,7 +14,7 @@ A small, maintainable test automation framework built with Playwright and TypeSc
 | [Playwright Test](https://playwright.dev/) | Test runner, browser automation, `request` fixture for API tests, HTML reporting |
 | TypeScript (strict mode) | Type safety for page objects, test data and API models |
 | Node.js 18+ | Runtime |
-| Git | Version control |
+| Git / GitHub Actions | Version control and CI pipeline |
 
 No extra dependencies are used. The API client uses Playwright's built-in `request` fixture, not Axios or Fetch.
 
@@ -42,7 +42,9 @@ No extra dependencies are used. The API client uses Playwright's built-in `reque
 ├── utils/
 │   └── priceCalculator.ts           # parse "$29.99" and sum prices
 ├── config/
-│   └── testConfig.ts                # base URLs (can be overridden with env variables)
+│   └── testConfig.ts                # base URLs and required env variable helper
+├── .github/workflows/playwright.yml # CI pipeline
+├── .env.example                     # template for local secrets (.env is git-ignored)
 ├── playwright.config.ts
 ├── tsconfig.json
 ├── package.json
@@ -51,7 +53,7 @@ No extra dependencies are used. The API client uses Playwright's built-in `reque
 
 ## 4. Prerequisites
 
-- Node.js **18 or newer** (`node -v`)
+- Node.js **20.12 or newer** (`node -v`); needed for the built-in `.env` loader
 - npm
 - Internet access (both applications are public websites)
 
@@ -59,7 +61,10 @@ No extra dependencies are used. The API client uses Playwright's built-in `reque
 
 ```bash
 npm install
+cp .env.example .env   # then set SAUCE_PASSWORD in .env
 ```
+
+The SauceDemo password is not stored in the code. It is read from the `SAUCE_PASSWORD` environment variable. Locally, `playwright.config.ts` loads it from `.env`, which is git-ignored. In CI it comes from a GitHub secret. If it is missing, the UI test stops with a clear error. The API test does not need it.
 
 ## 6. Install Playwright browsers
 
@@ -113,8 +118,22 @@ If a test fails, the report includes a screenshot (UI) and a Playwright trace. T
 | --- | --- |
 | `UI_BASE_URL` | `https://www.saucedemo.com` |
 | `API_BASE_URL` | `https://restful-booker.herokuapp.com` |
-| `SAUCE_USERNAME` / `SAUCE_PASSWORD` | the public SauceDemo demo credentials |
+| `SAUCE_USERNAME` | `standard_user` |
+| `SAUCE_PASSWORD` | **required**, no default (`.env` locally, GitHub secret in CI) |
 | `CI` | when set: 1 retry, `test.only` is not allowed |
+
+### Continuous integration (GitHub Actions)
+
+`.github/workflows/playwright.yml` runs on every push and pull request to `main`, and can also be started manually from the **Actions** tab (*Run workflow*). The job:
+
+1. Installs dependencies (`npm ci`) and Chromium.
+2. Runs the TypeScript type check.
+3. Runs all tests **headless**. This is Playwright's default when `--headed` is not passed.
+4. Uploads the HTML report as the `playwright-report` artifact, on pass or fail. If a test fails, it also uploads `test-results` (screenshots and traces).
+
+**One-time setup:** in the GitHub repository, go to **Settings → Secrets and variables → Actions → New repository secret**. Create a secret named `SAUCE_PASSWORD` with value `secret_sauce`. The workflow fails early with a clear message if the secret is missing. `SAUCE_USERNAME` can optionally be set as a repository **variable**. It defaults to `standard_user`.
+
+**Viewing the CI report:** open the workflow run, download the `playwright-report` artifact, unzip it, and run `npx playwright show-report <unzipped-folder>`.
 
 ## 11. Framework architecture and Page Object Model
 
@@ -162,6 +181,7 @@ The spec files therefore read as a sequence of business steps.
 - **One `CheckoutPage` for the three checkout steps** (information, overview and complete), as the brief's structure suggests. Locators are grouped by step with comments.
 - **Price maths rounds to 2 decimal places.** In floating point, `29.99 + 9.99 = 39.980000000000004`. `calculateTotal` rounds so the comparison with the displayed `$39.98` is exact.
 - **`test.step` blocks** in the UI test make the HTML report readable without adding logic to the spec.
+- **Secrets come from the environment.** The password is never committed. It is read through `getRequiredEnv()` from `.env` locally and from GitHub secrets in CI.
 - **Strict TypeScript** with `noUnusedLocals` and `noUnusedParameters`, so unused code fails `npm run typecheck`.
 - **Status codes.** Restful Booker returns `200` (not `201`) for `POST /booking`. The test asserts the documented behaviour (`200`).
 - **Shared public sandbox.** Restful Booker is a public demo server that is regularly reset and sometimes unavailable (see the observation below). The config retries once on CI to reduce noise from that.
