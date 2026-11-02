@@ -1,0 +1,13 @@
+node_modules/
+test-results/
+playwright-report/
+blob-report/
+playwright/.cache/
+.env
+.env.*
+!.env.example
+
+# Local editor history and assessment brief
+.history/
+instructions.md
+.DS_Store
