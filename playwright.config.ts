@@ -1,5 +1,11 @@
+import { existsSync } from 'node:fs';
 import { defineConfig, devices } from '@playwright/test';
 import { testConfig } from './config/testConfig';
+
+// Load local secrets (e.g. SAUCE_PASSWORD) from .env. In CI they come from GitHub secrets instead.
+if (existsSync('.env')) {
+  process.loadEnvFile('.env');
+}
 
 export default defineConfig({
   testDir: './tests',

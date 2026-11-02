@@ -1,3 +1,5 @@
+import { getRequiredEnv } from '../../config/testConfig';
+
 export interface UserCredentials {
   username: string;
   password: string;
@@ -11,7 +13,7 @@ export interface CustomerInfo {
 
 export const standardUser: UserCredentials = {
   username: process.env.SAUCE_USERNAME ?? 'standard_user',
-  password: process.env.SAUCE_PASSWORD ?? 'secret_sauce',
+  password: getRequiredEnv('SAUCE_PASSWORD'),
 };
 
 export const productsToPurchase: string[] = ['Sauce Labs Backpack', 'Sauce Labs Bike Light'];
